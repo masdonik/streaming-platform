@@ -68,20 +68,35 @@
                 <i class="fas fa-cloud-download-alt"></i>
                 Download Video dari Google Drive
             </h2>
-            <form action="{{ url_for('download_video') }}" method="POST" class="stream-controls">
+
+            <!-- API Key Form -->
+            <form action="{{ url_for('save_api_key') }}" method="POST" class="api-key-form">
                 <div class="form-group">
                     <label for="api_key" class="form-label">Google Drive API Key</label>
-                    <input type="password" 
-                           id="api_key" 
-                           name="api_key" 
-                           class="form-control" 
-                           placeholder="Masukkan API Key dari Google Cloud Console"
-                           required>
+                    <div class="input-group">
+                        <input type="password" 
+                               id="saved_api_key" 
+                               name="api_key" 
+                               class="form-control" 
+                               value="{{ session.get('api_key', '') }}"
+                               placeholder="Masukkan API Key dari Google Cloud Console"
+                               required>
+                        <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility()">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                     <small style="color: var(--text-secondary);">
                         * Dapatkan API Key dari Google Cloud Console
                     </small>
                 </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Simpan API Key
+                </button>
+            </form>
 
+            <!-- Download Form -->
+            <form action="{{ url_for('download_video') }}" method="POST" class="stream-controls" style="margin-top: 2rem;">
                 <div class="form-group">
                     <label for="drive_url" class="form-label">URL Google Drive</label>
                     <input type="text" 
@@ -97,7 +112,7 @@
                     <span class="progress-text">0%</span>
                 </div>
 
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
                     <i class="fas fa-download"></i>
                     Download Video
                 </button>
@@ -196,6 +211,16 @@
                 });
         }
         setInterval(updateSystemInfo, 5000);
+
+        // Toggle API Key visibility
+        function toggleApiKeyVisibility() {
+            const apiKeyInput = document.getElementById('saved_api_key');
+            if (apiKeyInput.type === 'password') {
+                apiKeyInput.type = 'text';
+            } else {
+                apiKeyInput.type = 'password';
+            }
+        }
 
         // Modal functions
         function showRenameModal(filename) {

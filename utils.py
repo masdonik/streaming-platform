@@ -5,6 +5,11 @@ import subprocess
 import psutil
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
+from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+import io
 
 def get_system_info():
     """Get system resource usage"""
@@ -49,7 +54,7 @@ def format_size(size):
         size /= 1024
     return f"{size:.1f} TB"
 
-def get_file_id_from_url(url, api_key):
+def get_file_id_from_url(url):
     """
     Extract file ID from URL Google Drive.
     Mendukung format URL:
@@ -84,40 +89,60 @@ def download_from_google_drive(url, save_path, api_key, progress_callback=None):
     Download file dari Google Drive menggunakan API
     """
     try:
-        file_id = get_file_id_from_url(url, api_key)
+        file_id = get_file_id_from_url(url)
         
         # Buat direktori jika belum ada
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         
-        # Download menggunakan Google Drive API
-        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+        # Setup Google Drive API dengan API key
         headers = {
-            "Authorization": f"Bearer {api_key}"
+            'Authorization': f'Bearer {api_key}',
+            'Accept': 'application/json'
         }
         
+        # Get file metadata first
+        metadata_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?fields=size,mimeType'
+        metadata_response = requests.get(metadata_url, headers=headers)
+        metadata_response.raise_for_status()
+        metadata = metadata_response.json()
+        
+        # Verify if it's a video file
+        mime_type = metadata.get('mimeType', '')
+        if not mime_type.startswith('video/'):
+            raise ValueError("File bukan merupakan video")
+        
+        # Download file
+        download_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?alt=media'
         response = requests.get(download_url, headers=headers, stream=True)
         response.raise_for_status()
         
         # Get file size
-        file_size = int(response.headers.get('content-length', 0))
+        file_size = int(metadata.get('size', 0))
         
         # Download with progress
-        block_size = 1024
         downloaded = 0
-        
-        with open(save_path, 'wb') as file:
-            for data in response.iter_content(block_size):
-                downloaded += len(data)
-                file.write(data)
-                
-                if progress_callback and file_size:
-                    progress = (downloaded / file_size) * 100
-                    progress_callback(progress)
+        with open(save_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    downloaded += len(chunk)
+                    f.write(chunk)
+                    if progress_callback and file_size:
+                        progress = (downloaded / file_size) * 100
+                        progress_callback(progress)
         
         return True
         
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
+        if e.response is not None:
+            if e.response.status_code == 401:
+                raise Exception("API Key tidak valid atau kadaluarsa")
+            elif e.response.status_code == 403:
+                raise Exception("Akses ditolak. Pastikan file dapat diakses publik atau API Key memiliki akses yang cukup")
+            elif e.response.status_code == 404:
+                raise Exception("File tidak ditemukan")
         raise Exception(f"Error saat download: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error: {str(e)}")
 
 def is_video_file(filename):
     """

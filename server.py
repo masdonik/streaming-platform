@@ -83,14 +83,29 @@ def dashboard():
     system_info = get_system_info()
     return render_template('dashboard.html', videos=videos, system_info=system_info)
 
+@app.route('/save-api-key', methods=['POST'])
+@login_required
+def save_api_key():
+    api_key = request.form.get('api_key')
+    if api_key:
+        session['api_key'] = api_key
+        flash('API Key berhasil disimpan!', 'success')
+    else:
+        flash('API Key tidak boleh kosong!', 'error')
+    return redirect(url_for('dashboard'))
+
 @app.route('/download', methods=['POST'])
 @login_required
 def download_video():
     drive_url = request.form.get('drive_url')
-    api_key = request.form.get('api_key')
+    api_key = session.get('api_key')
     
-    if not all([drive_url, api_key]):
-        flash('URL Google Drive dan API Key harus diisi!', 'error')
+    if not api_key:
+        flash('Silakan simpan API Key terlebih dahulu!', 'error')
+        return redirect(url_for('dashboard'))
+        
+    if not drive_url:
+        flash('URL Google Drive harus diisi!', 'error')
         return redirect(url_for('dashboard'))
     
     try:
