@@ -44,17 +44,43 @@ sudo apt-get update && sudo apt-get install -y ffmpeg
 mkdir videos
 ```
 
-## Konfigurasi
+## Konfigurasi Google Drive API
 
-1. Google Drive API:
-   - Buat project di Google Cloud Console
-   - Aktifkan Google Drive API
-   - Buat kredensial dan dapatkan API Key
-   - Masukkan API Key saat mendownload video
+1. Buka [Google Cloud Console](https://console.cloud.google.com/)
+2. Buat Project baru atau pilih project yang sudah ada
+3. Aktifkan Google Drive API:
+   - Buka "APIs & Services" > "Library"
+   - Cari "Google Drive API"
+   - Klik "Enable"
 
-2. Platform Streaming:
-   - YouTube: Dapatkan Stream Key dari YouTube Studio
-   - Facebook: Dapatkan Stream Key dari Facebook Creator Studio
+4. Buat OAuth2 Credentials:
+   - Buka "APIs & Services" > "Credentials"
+   - Klik "Create Credentials" > "OAuth client ID"
+   - Pilih "Desktop Application"
+   - Isi nama aplikasi
+   - Klik "Create"
+   - Download file JSON credentials
+
+5. Dapatkan OAuth2 Token:
+   - Buka [Google OAuth 2.0 Playground](https://developers.google.com/oauthplayground)
+   - Klik gear icon (Settings) di kanan atas
+   - Centang "Use your own OAuth credentials"
+   - Masukkan Client ID dan Client Secret dari file credentials JSON
+   - Di panel kiri, expand "Drive API v3"
+   - Pilih scope:
+     - https://www.googleapis.com/auth/drive.readonly
+     - https://www.googleapis.com/auth/drive.metadata.readonly
+   - Klik "Authorize APIs"
+   - Login dengan Google Account yang memiliki akses ke file
+   - Klik "Exchange authorization code for tokens"
+   - Copy "Access token" yang muncul
+
+6. Gunakan Access Token:
+   - Paste token ke form "Google Drive API Key" di aplikasi
+   - Klik "Simpan API Key"
+   - Token akan tersimpan selama session aktif
+
+Note: Access token biasanya berlaku 1 jam. Jika expired, ulangi langkah 5 untuk mendapatkan token baru.
 
 ## Penggunaan
 
@@ -74,31 +100,42 @@ Username: admin
 Password: 1234
 ```
 
-## Fitur Detail
+## Download Video dari Google Drive
 
-### Download Video
-- Mendukung download video dari Google Drive
-- Progress bar saat download
-- Validasi format video
-- Penyimpanan otomatis di folder videos
+1. Masukkan OAuth2 Access Token:
+   - Copy Access Token dari Google OAuth Playground
+   - Paste ke field "Google Drive API Key"
+   - Klik "Simpan API Key"
 
-### Live Streaming
-- Support multi-platform (YouTube, Facebook)
-- Kontrol streaming (start/stop)
-- Monitor status streaming
-- Loop video otomatis
+2. Download Video:
+   - Masukkan URL Google Drive video
+   - Format URL yang didukung:
+     - https://drive.google.com/file/d/{fileId}/view
+     - https://drive.google.com/open?id={fileId}
+     - Langsung file ID
+   - Klik "Download Video"
 
-### Manajemen Video
-- Rename video
-- Delete video
-- Informasi ukuran dan tanggal
-- Tabel daftar video
+Note: 
+- Pastikan file video di Google Drive diset "Anyone with the link can view"
+- Hanya file video yang dapat didownload (mp4, mkv, avi, mov, flv, wmv)
 
-### Monitoring Sistem
-- CPU Usage
-- Memory Usage (Used/Total)
-- Disk Usage (Used/Total)
-- Update otomatis setiap 5 detik
+## Live Streaming
+
+### YouTube Live
+1. Buka YouTube Studio dan masuk ke menu "Go Live"
+2. Pilih opsi "Stream" untuk mendapatkan Stream Key
+3. Copy Stream Key dari YouTube Studio
+4. Paste Stream Key ke form di aplikasi
+5. Pilih video yang akan di-streaming
+6. Klik "Mulai Live Streaming"
+
+### Facebook Live
+1. Buka Facebook Creator Studio
+2. Pilih "Create Post" > "Live Video"
+3. Copy Stream Key yang diberikan
+4. Paste Stream Key ke form di aplikasi
+5. Pilih video yang akan di-streaming
+6. Klik "Mulai Live Streaming"
 
 ## Struktur Direktori
 
@@ -123,6 +160,7 @@ streaming-platform/
 - Validasi input untuk semua form
 - Sanitasi nama file
 - Proteksi terhadap akses langsung ke file
+- OAuth2 untuk akses Google Drive API
 
 ## Pengembangan
 

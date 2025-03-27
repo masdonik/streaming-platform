@@ -94,30 +94,43 @@ def download_from_google_drive(url, save_path, api_key, progress_callback=None):
         # Buat direktori jika belum ada
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         
-        # Setup Google Drive API dengan API key
+        # Setup Google Drive API dengan OAuth2
         headers = {
             'Authorization': f'Bearer {api_key}',
             'Accept': 'application/json'
         }
         
         # Get file metadata first
-        metadata_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?fields=size,mimeType'
+        metadata_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?supportsAllDrives=true&fields=size,mimeType,name'
         metadata_response = requests.get(metadata_url, headers=headers)
+        
+        if metadata_response.status_code == 401:
+            raise Exception("API Key tidak valid atau kadaluarsa. Pastikan Anda menggunakan OAuth2 token yang valid dari Google Cloud Console")
+        elif metadata_response.status_code == 403:
+            raise Exception("Akses ditolak. Pastikan file dapat diakses publik atau token memiliki akses yang cukup")
+        elif metadata_response.status_code == 404:
+            raise Exception("File tidak ditemukan. Pastikan URL atau ID file benar dan Anda memiliki akses")
+        
         metadata_response.raise_for_status()
         metadata = metadata_response.json()
         
         # Verify if it's a video file
         mime_type = metadata.get('mimeType', '')
         if not mime_type.startswith('video/'):
-            raise ValueError("File bukan merupakan video")
+            raise ValueError("File bukan merupakan video. Hanya file video yang dapat didownload.")
         
         # Download file
-        download_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?alt=media'
+        download_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&supportsAllDrives=true'
         response = requests.get(download_url, headers=headers, stream=True)
         response.raise_for_status()
         
         # Get file size
         file_size = int(metadata.get('size', 0))
+        
+        # Get original filename
+        original_filename = metadata.get('name', '')
+        if original_filename:
+            save_path = os.path.join(os.path.dirname(save_path), get_safe_filename(original_filename))
         
         # Download with progress
         downloaded = 0
@@ -130,16 +143,16 @@ def download_from_google_drive(url, save_path, api_key, progress_callback=None):
                         progress = (downloaded / file_size) * 100
                         progress_callback(progress)
         
-        return True
+        return True, save_path
         
     except requests.exceptions.RequestException as e:
         if e.response is not None:
             if e.response.status_code == 401:
-                raise Exception("API Key tidak valid atau kadaluarsa")
+                raise Exception("API Key tidak valid atau kadaluarsa. Pastikan Anda menggunakan OAuth2 token yang valid dari Google Cloud Console")
             elif e.response.status_code == 403:
-                raise Exception("Akses ditolak. Pastikan file dapat diakses publik atau API Key memiliki akses yang cukup")
+                raise Exception("Akses ditolak. Pastikan file dapat diakses publik atau token memiliki akses yang cukup")
             elif e.response.status_code == 404:
-                raise Exception("File tidak ditemukan")
+                raise Exception("File tidak ditemukan. Pastikan URL atau ID file benar dan Anda memiliki akses")
         raise Exception(f"Error saat download: {str(e)}")
     except Exception as e:
         raise Exception(f"Error: {str(e)}")
