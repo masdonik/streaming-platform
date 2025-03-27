@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Streaming - Streaming Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>
+                <i class="fas fa-broadcast-tower"></i>
+                Live Streaming
+            </h1>
+            <div class="nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-video"></i>
+                    Video
+                </a>
+                <a href="{{ url_for('live') }}" class="nav-link active">
+                    <i class="fas fa-broadcast-tower"></i>
+                    Live Streaming
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link" style="color: var(--error-color);">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </a>
+            </div>
+        </div>
+
+        <!-- System Monitoring -->
+        <div class="system-info">
+            <div class="info-card">
+                <i class="fas fa-microchip"></i>
+                <h3>CPU Usage</h3>
+                <p id="cpu-usage">{{ system_info.cpu }}%</p>
+            </div>
+            <div class="info-card">
+                <i class="fas fa-memory"></i>
+                <h3>Memory Usage</h3>
+                <p id="memory-usage">{{ system_info.memory.percent }}%</p>
+                <small>{{ (system_info.memory.used / 1024 / 1024 / 1024)|round(1) }}GB / {{ (system_info.memory.total / 1024 / 1024 / 1024)|round(1) }}GB</small>
+            </div>
+            <div class="info-card">
+                <i class="fas fa-hdd"></i>
+                <h3>Disk Usage</h3>
+                <p id="disk-usage">{{ system_info.disk.percent }}%</p>
+                <small>{{ (system_info.disk.used / 1024 / 1024 / 1024)|round(1) }}GB / {{ (system_info.disk.total / 1024 / 1024 / 1024)|round(1) }}GB</small>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="live-container">
+            <h2>
+                <i class="fas fa-play-circle"></i>
+                Kontrol Live Streaming
+            </h2>
+
+            {% if videos %}
+                <!-- Form Start Streaming -->
+                <form action="{{ url_for('start_live') }}" method="POST" class="stream-controls">
+                    <div class="form-group">
+                        <label for="video_file" class="form-label">
+                            <i class="fas fa-file-video"></i>
+                            Pilih Video
+                        </label>
+                        <select name="video_file" id="video_file" class="form-control" required>
+                            <option value="">-- Pilih Video --</option>
+                            {% for video in videos %}
+                                <option value="{{ video.name }}">{{ video.name }} ({{ video.size }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="platform" class="form-label">
+                            <i class="fas fa-tv"></i>
+                            Platform Streaming
+                        </label>
+                        <select name="platform" id="platform" class="form-control" required onchange="updateStreamKeyLabel()">
+                            <option value="">-- Pilih Platform --</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="facebook">Facebook</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stream_key" class="form-label" id="stream_key_label">
+                            <i class="fas fa-key"></i>
+                            Stream Key
+                        </label>
+                        <input type="password" 
+                               id="stream_key" 
+                               name="stream_key" 
+                               class="form-control" 
+                               placeholder="Masukkan Stream Key"
+                               required>
+                        <small style="color: var(--text-secondary);" id="stream_key_help">
+                            * Dapatkan Stream Key dari platform streaming yang dipilih
+                        </small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-play"></i>
+                        Mulai Live Streaming
+                    </button>
+                </form>
+
+                <!-- Daftar Live Streaming Aktif -->
+                <div style="margin-top: 2rem;">
+                    <h2>
+                        <i class="fas fa-list"></i>
+                        Daftar Live Streaming Aktif
+                    </h2>
+                    {% if streams %}
+                        <div class="table-responsive">
+                            <table class="video-table">
+                                <thead>
+                                    <tr>
+                                        <th>Video</th>
+                                        <th>Platform</th>
+                                        <th>Waktu Mulai</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for stream_id, stream in active_streams.items() %}
+                                        <tr>
+                                            <td>{{ stream.video }}</td>
+                                            <td>
+                                                {% if stream.platform == 'youtube' %}
+                                                    <i class="fab fa-youtube"></i> YouTube
+                                                {% elif stream.platform == 'facebook' %}
+                                                    <i class="fab fa-facebook"></i> Facebook
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ stream.started.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                            <td>
+                                                <form action="{{ url_for('stop_live') }}" 
+                                                      method="POST"
+                                                      onsubmit="return confirm('Yakin ingin menghentikan streaming ini?');">
+                                                    <input type="hidden" name="stream_id" value="{{ stream_id }}">
+                                                    <button type="submit" class="btn btn-danger btn-sm">
+                                                        <i class="fas fa-stop"></i>
+                                                        Stop
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p style="text-align: center; color: var(--text-secondary); margin-top: 1rem;">
+                            <i class="fas fa-info-circle"></i>
+                            Tidak ada streaming yang sedang aktif
+                        </p>
+                    {% endif %}
+                </div>
+
+                <!-- Petunjuk -->
+                <div style="margin-top: 2rem; padding: 1rem; background-color: var(--bg-tertiary); border-radius: 5px;">
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">
+                        <i class="fas fa-info-circle"></i>
+                        Petunjuk Live Streaming
+                    </h3>
+                    <div class="platform-instructions" id="youtube_instructions" style="display: none;">
+                        <h4><i class="fab fa-youtube"></i> YouTube Live Streaming</h4>
+                        <ol style="padding-left: 1.5rem; color: var(--text-secondary);">
+                            <li>Buka YouTube Studio dan masuk ke menu "Go Live"</li>
+                            <li>Pilih opsi "Stream" untuk mendapatkan Stream Key</li>
+                            <li>Copy Stream Key dari YouTube Studio</li>
+                            <li>Paste Stream Key ke form di atas</li>
+                            <li>Pilih video yang akan di-streaming</li>
+                            <li>Klik "Mulai Live Streaming"</li>
+                            <li>Tunggu beberapa saat hingga streaming berjalan</li>
+                        </ol>
+                    </div>
+                    <div class="platform-instructions" id="facebook_instructions" style="display: none;">
+                        <h4><i class="fab fa-facebook"></i> Facebook Live Streaming</h4>
+                        <ol style="padding-left: 1.5rem; color: var(--text-secondary);">
+                            <li>Buka Facebook Creator Studio</li>
+                            <li>Pilih "Create Post" > "Live Video"</li>
+                            <li>Copy Stream Key yang diberikan</li>
+                            <li>Paste Stream Key ke form di atas</li>
+                            <li>Pilih video yang akan di-streaming</li>
+                            <li>Klik "Mulai Live Streaming"</li>
+                            <li>Tunggu beberapa saat hingga streaming berjalan</li>
+                        </ol>
+                    </div>
+                </div>
+            {% else %}
+                <div style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 3rem;"></i>
+                    <p style="margin-top: 1rem;">
+                        Belum ada video yang tersedia untuk di-streaming.<br>
+                        Silakan upload video terlebih dahulu di halaman Video.
+                    </p>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="margin-top: 1rem;">
+                        <i class="fas fa-upload"></i>
+                        Upload Video
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Update system info every 5 seconds
+        function updateSystemInfo() {
+            fetch('/system-info')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('cpu-usage').textContent = data.cpu + '%';
+                    document.getElementById('memory-usage').textContent = data.memory.percent + '%';
+                    document.getElementById('disk-usage').textContent = data.disk.percent + '%';
+                });
+        }
+        setInterval(updateSystemInfo, 5000);
+
+        // Update stream key label and instructions based on platform
+        function updateStreamKeyLabel() {
+            const platform = document.getElementById('platform').value;
+            const label = document.getElementById('stream_key_label');
+            const help = document.getElementById('stream_key_help');
+            
+            // Hide all instructions first
+            document.querySelectorAll('.platform-instructions').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            if (platform === 'youtube') {
+                label.innerHTML = '<i class="fas fa-key"></i> YouTube Stream Key';
+                help.textContent = '* Dapatkan Stream Key dari YouTube Studio > Go Live > Stream';
+                document.getElementById('youtube_instructions').style.display = 'block';
+            } else if (platform === 'facebook') {
+                label.innerHTML = '<i class="fas fa-key"></i> Facebook Stream Key';
+                help.textContent = '* Dapatkan Stream Key dari Facebook Creator Studio';
+                document.getElementById('facebook_instructions').style.display = 'block';
+            } else {
+                label.innerHTML = '<i class="fas fa-key"></i> Stream Key';
+                help.textContent = '* Dapatkan Stream Key dari platform streaming yang dipilih';
+            }
+        }
+
+        // Hapus pesan flash setelah 5 detik
+        setTimeout(function() {
+            const alerts = document.getElementsByClassName('alert');
+            for(let alert of alerts) {
+                alert.style.display = 'none';
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
