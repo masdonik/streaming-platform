@@ -21,7 +21,7 @@ Aplikasi streaming video dengan fitur download dari Google Drive dan live stream
 
 1. Clone repository:
 ```bash
-git clone https://github.com/yourusername/streaming-platform.git
+git clone https://github.com/masdonik/streaming-platform.git
 cd streaming-platform
 ```
 
